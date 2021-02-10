@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"time"
-
+	"os"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -24,24 +24,27 @@ type User struct {
 	Email    string `json:"email"`
 }
 
-const (
-	host     = "localhost"
-	port     = 5433
-	dbuser   = "postgres"
-	password = "password"
-	dbname   = "finnhub"
-)
-
 func health(w http.ResponseWriter, r *http.Request) {
-
+        tag :=  os.Getenv("DEPLOYMENT_TAG")
 	fmt.Println("Healthy server")
 	w.Header().Add("content-type", "application/json")
-	w.Write([]byte("HEALTHY"))
+	w.Write([]byte("HEALTHY " + tag))
 }
 
 func (app *App) Initialize() {
 	fmt.Println("Initializaling DB connection")
-	connectionString := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbuser, password, dbname)
+        host := os.Getenv("POSTGRES_SERVICE_HOST")
+	port := os.Getenv("POSTGRES_SERVICE_PORT")
+	dbuser := os.Getenv("POSTGRES_DB_USERNAME")
+	password := os.Getenv("POSTGRES_DB_PASSWORD")
+	dbname := os.Getenv("POSTGRES_DB")
+        tag :=  os.Getenv("DEPLOYMENT_TAG")
+        fmt.Printf("Postgres Service Host : %v\n", host)
+	fmt.Printf("Postgres Service Port : %v\n", port)
+	fmt.Printf("Postgres User : %v\n", dbuser)
+	fmt.Printf("Postgres DB : %v\n", dbname)
+        fmt.Printf("Deployment Name: %v\n", tag)
+	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, dbuser, password, dbname)
 	var err error
 	app.DB, err = sql.Open("postgres", connectionString)
 	if err != nil {
@@ -53,8 +56,8 @@ func (app *App) Initialize() {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/health", health).Methods("GET")
-	r.HandleFunc("/register", app.SignUp).Methods("POST")
+	r.HandleFunc("/trade/health", health).Methods("GET")
+	r.HandleFunc("/trade/register", app.SignUp).Methods("POST")
 	app.Router = r
 
 }
@@ -103,5 +106,5 @@ func main() {
 	fmt.Println("This is test")
 	app.Initialize()
 	defer app.DB.Close()
-	http.ListenAndServe("localhost:8080", app.Router)
+	http.ListenAndServe(":8080", app.Router)
 }
